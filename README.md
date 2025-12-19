@@ -1,459 +1,281 @@
-# Palo Alto Networks MCP Server Suite
+# Palo Alto Networks MCP Server
 
-[![smithery badge](https://smithery.ai/badge/@DynamicEndpoints/paloalto-mcp-server)](https://smithery.ai/server/@DynamicEndpoints/paloalto-mcp-server)
+A tool that lets AI assistants (like Claude) manage your Palo Alto Networks firewall through natural conversation.
 
-A comprehensive suite of Model Context Protocol (MCP) servers for managing Palo Alto Networks firewalls and services through a unified API interface.
+## What is this?
 
-## Table of Contents
+This is an **MCP Server** (Model Context Protocol Server) - a bridge that allows AI assistants to securely interact with your Palo Alto Networks firewall. Instead of manually logging into your firewall's admin panel, you can ask an AI assistant to:
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Installation](#installation)
-- [Server Details](#server-details)
-  - [Core Server](#core-server-paloalto-server)
-  - [Policy Server](#policy-server-paloalto-policy-server)
-  - [Config Server](#config-server-paloalto-config-server)
-  - [Objects Server](#objects-server-paloalto-objects-server)
-  - [Device Server](#device-server-paloalto-device-server)
-- [Integration Patterns](#integration-patterns)
-- [Advanced Usage](#advanced-usage)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
+- View your firewall's system information
+- List security rules, addresses, and network configurations
+- View specific configuration settings
+- Move or copy configuration items
 
-## Overview
+Think of it as giving your AI assistant controlled access to manage your firewall on your behalf.
 
-The Palo Alto Networks MCP Server Suite provides a modular approach to firewall management through specialized servers:
+## Is it safe?
 
-- **Core Server**: Base firewall operations and shared functionality
-- **Policy Server**: Security policy and rule management
-- **Config Server**: System configuration and settings
-- **Objects Server**: Network objects and address management
-- **Device Server**: Device operations and monitoring
+**Yes.** This server was designed with security in mind:
 
-## Architecture
+| Security Feature | Description |
+|-----------------|-------------|
+| **No hardcoded passwords** | Your API key is stored securely in environment variables, never in the code |
+| **No hidden connections** | The server only connects to YOUR firewall - no data is sent anywhere else |
+| **Trusted dependencies** | Uses only well-known, widely-used libraries (axios for HTTP requests, official MCP SDK) |
+| **No install scripts** | No hidden code runs when you install the package |
+| **Open source** | All code is visible and auditable |
+| **Read-focused** | Most operations are read-only; write operations require explicit action |
 
-```
-┌─────────────────┐     ┌──────────────────┐
-│    Core Server  │◄────┤  Policy Server   │
-│                 │     └──────────────────┘
-│  (Base Services)│     ┌──────────────────┐
-│                 │◄────┤  Config Server   │
-│                 │     └──────────────────┘
-│                 │     ┌──────────────────┐
-│                 │◄────┤  Objects Server  │
-│                 │     └──────────────────┘
-│                 │     ┌──────────────────┐
-│                 │◄────┤  Device Server   │
-└────────┬────────┘     └──────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Palo Alto API  │
-└─────────────────┘
-```
+## Requirements
 
-## Installation
+Before you start, you'll need:
 
-### Installing via Smithery
+1. **A Palo Alto Networks firewall** with API access enabled
+2. **An API key** from your firewall (see [How to get an API key](#how-to-get-an-api-key))
+3. **Node.js** installed on your computer (version 18 or higher)
 
-To install Palo Alto Networks MCP Server Suite for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@DynamicEndpoints/paloalto-mcp-server):
+## Quick Start
 
-```bash
-npx -y @smithery/cli install @DynamicEndpoints/paloalto-mcp-server --client claude
-```
+1. **Download the code**
+   ```bash
+   git clone https://github.com/danielitus/paloalto-mcp-server.git
+   cd paloalto-mcp-server
+   ```
 
-### Manual Installation
-1. Clone the repository:
-```bash
-git clone https://github.com/your-org/paloalto-mcp-servers.git
-cd paloalto-mcp-servers
-```
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-2. Install dependencies for each server:
-```bash
-# Install core server
-cd paloalto-server
-npm install
+3. **Build the project**
+   ```bash
+   npm run build
+   ```
 
-# Install policy server
-cd ../paloalto-policy-server
-npm install
+4. **Set up your credentials**
 
-# Install config server
-cd ../paloalto-config-server
-npm install
+   Create a file called `.env` in the project folder with:
+   ```
+   PANOS_API_KEY=your-api-key-here
+   PANOS_API_BASE_URL=https://your-firewall-address/restapi/v11.0
+   ```
 
-# Install objects server
-cd ../paloalto-objects-server
-npm install
+5. **Start the server**
+   ```bash
+   npm start
+   ```
 
-# Install device server
-cd ../paloalto-device-server
-npm install
-```
+## How to Get an API Key
 
-3. Configure environment variables:
-```bash
-# Create .env files in each server directory
-PANOS_API_KEY=your-api-key
-PANOS_API_BASE_URL=https://your-firewall.example.com/api
+1. Log into your Palo Alto firewall's web interface
+2. Go to **Device** → **Administrators**
+3. Click on your admin username
+4. Look for **API Key** section and generate a new key
+5. Copy and save this key securely - you'll need it for configuration
 
-# Optional configurations
-PANOS_VERIFY_SSL=true
-PANOS_TIMEOUT=30000
-PANOS_DEBUG=false
-```
+> **Important:** Keep your API key secret! Anyone with this key can access your firewall's API.
 
-## Server Details
+## What Can It Do?
 
-### Core Server (paloalto-server)
+Once set up, you can ask your AI assistant to perform these tasks:
 
-Base server providing shared functionality and core operations.
+### View System Information
+Ask: *"What virtual systems are configured on my firewall?"*
 
-#### Key Features
-- Authentication and session management
-- API rate limiting and retry logic
-- Shared utility functions
-- Error handling framework
+### List Resources
+Ask: *"Show me all the address objects"* or *"List my security rules"*
 
-#### Example: Basic Authentication
-```typescript
-const result = await useMcpTool("paloalto-server", "verify_credentials", {
-  api_key: process.env.PANOS_API_KEY
-});
+Available categories:
+- **Objects**: Addresses, Services, Tags, Security Profiles, and more
+- **Policies**: Security Rules, NAT Rules, QoS Rules, and more
+- **Network**: Interfaces, Zones, VPNs, DHCP settings, and more
+- **Devices**: Virtual Systems, Server Profiles, and more
 
-console.log(result.content[0].text); // Authentication status
-```
+### View Configuration Details
+Ask: *"Show me the configuration for the trust zone"*
 
-### Policy Server (paloalto-policy-server)
+### Move or Copy Configurations
+Ask: *"Clone the web-server address object to the DMZ"*
 
-Comprehensive policy and rule management.
+## Real-World Examples
 
-#### Available Tools
+Here are practical examples of how you can use this tool with your AI assistant:
 
-1. **get_security_rules**
-```typescript
-// Get all security rules
-const rules = await useMcpTool("paloalto-policy", "get_security_rules", {});
+### Finding Redundant Security Rules
 
-// Get rules with filtering
-const webRules = await useMcpTool("paloalto-policy", "get_security_rules", {
-  filter: {
-    service: ["http", "https"],
-    action: "allow"
-  }
-});
-```
+Redundant rules are rules that overlap with other rules, making them unnecessary. They clutter your firewall and can cause confusion.
 
-2. **create_security_rule**
-```typescript
-// Create a basic security rule
-await useMcpTool("paloalto-policy", "create_rule", {
-  rule_type: "security",
-  rule_data: {
-    name: "allow-internal-web",
-    source: ["internal-network"],
-    destination: ["web-servers"],
-    service: ["http", "https"],
-    action: "allow",
-    log_setting: "default",
-    profile_setting: {
-      group: ["default-protection"]
-    }
-  }
-});
+**Example conversation:**
 
-// Create a more complex rule with zones and applications
-await useMcpTool("paloalto-policy", "create_rule", {
-  rule_type: "security",
-  rule_data: {
-    name: "restrict-social-media",
-    source_zone: ["trust"],
-    destination_zone: ["untrust"],
-    source: ["internal-users"],
-    destination: ["any"],
-    application: ["facebook-base", "twitter-base"],
-    service: ["application-default"],
-    action: "deny",
-    log_setting: "detailed-logging",
-    description: "Block social media access"
-  }
-});
-```
+> **You:** "List all my security rules and check for any redundant ones"
+>
+> **AI Assistant:** *Retrieves your security rules and analyzes them*
+>
+> "I found 3 potentially redundant rules:
+> 1. **Rule 'allow-web-old'** (line 15) - This rule allows HTTP from 'internal-net' to 'any', but **Rule 'allow-all-web'** (line 8) already covers this traffic
+> 2. **Rule 'temp-ssh-access'** (line 23) - Appears to be a temporary rule from 6 months ago that duplicates 'admin-ssh-access'
+> 3. **Rule 'legacy-ftp'** (line 31) - Allows FTP but is shadowed by 'block-legacy-protocols' (line 5) which denies all legacy protocols"
 
-3. **update_security_rule**
-```typescript
-// Update an existing rule
-await useMcpTool("paloalto-policy", "update_rule", {
-  rule_type: "security",
-  rule_name: "allow-internal-web",
-  rule_data: {
-    service: ["http", "https", "ssh"],
-    description: "Updated to allow SSH access"
-  }
-});
-```
+### Finding Shadowed Rules
 
-### Config Server (paloalto-config-server)
+Shadowed rules are rules that never get hit because a rule above them matches the same traffic first.
 
-System configuration and settings management.
+**Example conversation:**
 
-#### Example: Network Configuration
-```typescript
-// Update DNS settings
-await useMcpTool("paloalto-config", "update_network_settings", {
-  dns_primary: "8.8.8.8",
-  dns_secondary: "8.8.4.4",
-  dns_search_domain: "example.com"
-});
+> **You:** "Are any of my security rules being shadowed by other rules?"
+>
+> **AI Assistant:** *Analyzes rule order and matching criteria*
+>
+> "Yes, I found 2 shadowed rules:
+> 1. **Rule 'allow-marketing-web'** (line 20) will never match because **Rule 'allow-department-web'** (line 12) already matches all department subnets including marketing
+> 2. **Rule 'deny-guest-wifi'** (line 45) is shadowed by **Rule 'guest-limited-access'** (line 40) - both match guest-wifi zone but line 40 processes first"
 
-// Configure interfaces
-await useMcpTool("paloalto-config", "configure_interface", {
-  name: "ethernet1/1",
-  config: {
-    mode: "layer3",
-    ip: ["10.0.1.1/24"],
-    zone: "trust",
-    enable: true
-  }
-});
-```
+### Checking for Overly Permissive Rules
 
-### Objects Server (paloalto-objects-server)
+Find rules that might be too broad and pose security risks.
 
-Network object and address management.
+**Example conversation:**
 
-#### Example: Address Object Management
-```typescript
-// Create address objects
-await useMcpTool("paloalto-objects", "create_address_object", {
-  name: "web-server-1",
-  type: "ip-netmask",
-  value: "10.0.1.100/32",
-  description: "Primary web server",
-  tags: ["production", "web"]
-});
+> **You:** "Find any security rules that are too permissive or use 'any' too broadly"
+>
+> **AI Assistant:** *Reviews rules for security best practices*
+>
+> "I found these potentially risky rules:
+> 1. **Rule 'allow-all-outbound'** - Allows ANY application from trust zone to untrust zone. Consider restricting to specific applications
+> 2. **Rule 'vendor-access'** - Source is 'any' with destination to your internal servers. Recommend limiting source to specific vendor IPs
+> 3. **Rule 'legacy-app-rule'** - Uses 'any' for both service and application. This bypasses App-ID inspection"
 
-// Create address group
-await useMcpTool("paloalto-objects", "create_address_group", {
-  name: "web-servers",
-  description: "All web servers",
-  members: ["web-server-1", "web-server-2"],
-  tags: ["production", "web"]
-});
+### Analyzing Rule Usage
 
-// Create dynamic address group
-await useMcpTool("paloalto-objects", "create_dynamic_address_group", {
-  name: "active-web-servers",
-  description: "Web servers currently in use",
-  filter: "tag.production and tag.web and state.up"
-});
-```
+Identify rules that may no longer be needed.
 
-### Device Server (paloalto-device-server)
+**Example conversation:**
 
-Device operations and monitoring.
+> **You:** "Which security rules haven't been hit recently and might be candidates for removal?"
+>
+> **AI Assistant:** *Retrieves rules and checks hit counts where available*
+>
+> "Based on the rule data, these rules have zero or very low hit counts:
+> 1. **Rule 'contractor-access-2023'** - 0 hits, last modified January 2023
+> 2. **Rule 'old-app-server'** - 0 hits, references address object 'app-srv-retired'
+> 3. **Rule 'test-rule-delete-me'** - Name suggests temporary rule, 0 hits"
 
-#### Example: Device Management
-```typescript
-// Get device status
-const status = await useMcpTool("paloalto-device", "get_device_status", {});
+### Comparing Address Objects
 
-// Commit changes
-await useMcpTool("paloalto-device", "commit_changes", {
-  description: "Updated security policies",
-  admins: ["admin1"], // Optional: Specify which admin's changes to commit
-});
+Find duplicate or overlapping address definitions.
 
-// Backup configuration
-await useMcpTool("paloalto-device", "backup_config", {
-  filename: "backup-2024-01-20.xml",
-  include_shared: true
-});
-```
+**Example conversation:**
 
-## Integration Patterns
+> **You:** "Do I have any duplicate or overlapping address objects?"
+>
+> **AI Assistant:** *Retrieves and compares address objects*
+>
+> "Found these issues:
+> 1. **'web-server-1'** (10.0.1.100) and **'webserver1'** (10.0.1.100) - Same IP, different names
+> 2. **'dev-subnet'** (10.0.50.0/24) overlaps with **'dev-servers'** (10.0.50.0/28) - The /28 is fully contained within the /24
+> 3. **'old-dns'** and **'dns-primary'** both point to 8.8.8.8"
 
-### 1. Security Policy Deployment
-```typescript
-async function deploySecurityPolicy() {
-  // 1. Create address objects
-  await useMcpTool("paloalto-objects", "create_address_object", {
-    name: "internal-subnet",
-    type: "ip-netmask",
-    value: "192.168.1.0/24"
-  });
+### Security Audit Summary
 
-  // 2. Create security rules
-  await useMcpTool("paloalto-policy", "create_rule", {
-    rule_type: "security",
-    rule_data: {
-      name: "allow-outbound",
-      source: ["internal-subnet"],
-      destination: ["any"],
-      service: ["web-browsing"],
-      action: "allow"
-    }
-  });
+Get a high-level overview of your firewall's security posture.
 
-  // 3. Verify configuration
-  const rules = await useMcpTool("paloalto-policy", "get_security_rules", {});
-  
-  // 4. Commit changes
-  await useMcpTool("paloalto-device", "commit_changes", {
-    description: "Deployed new security policy"
-  });
-}
-```
+**Example conversation:**
 
-### 2. High Availability Configuration
-```typescript
-async function configureHA() {
-  // 1. Configure HA interfaces
-  await useMcpTool("paloalto-config", "configure_ha", {
-    mode: "active-passive",
-    group: {
-      id: 1,
-      description: "Primary HA Group"
-    },
-    interfaces: {
-      ha1: {
-        port: "ethernet1/3",
-        ip: "10.0.0.1/24"
-      },
-      ha2: {
-        port: "ethernet1/4",
-        ip: "10.0.1.1/24"
-      }
-    }
-  });
+> **You:** "Give me a security audit summary of my firewall rules"
+>
+> **AI Assistant:** *Performs comprehensive analysis*
+>
+> "**Security Audit Summary:**
+>
+> | Category | Count | Status |
+> |----------|-------|--------|
+> | Total Rules | 47 | - |
+> | Rules using 'any' source | 5 | ⚠️ Review recommended |
+> | Rules using 'any' destination | 3 | ⚠️ Review recommended |
+> | Disabled rules | 8 | Consider cleanup |
+> | Rules without logging | 12 | 🔴 Enable logging |
+> | Potentially redundant | 4 | Review for removal |
+>
+> **Top recommendations:**
+> 1. Enable logging on the 12 rules currently not logging
+> 2. Review the 5 rules with 'any' source for tighter restrictions
+> 3. Consider removing or archiving the 8 disabled rules"
 
-  // 2. Configure HA policy
-  await useMcpTool("paloalto-config", "configure_ha_policy", {
-    preemptive: true,
-    heartbeat_interval: 2000,
-    heartbeat_threshold: 3
-  });
+## Configuration Options
 
-  // 3. Commit changes
-  await useMcpTool("paloalto-device", "commit_changes", {
-    description: "Configured HA settings"
-  });
-}
-```
-
-## Advanced Usage
-
-### 1. Custom Rule Templates
-```typescript
-const ruleTemplate = {
-  base: {
-    log_setting: "default",
-    profile_setting: {
-      group: ["default-protection"]
-    }
-  },
-  web: {
-    service: ["web-browsing"],
-    application: ["web-browsing"],
-    profile_setting: {
-      group: ["strict-web-protection"]
-    }
-  }
-};
-
-async function createRuleFromTemplate(type, customData) {
-  const template = {...ruleTemplate.base, ...ruleTemplate[type]};
-  await useMcpTool("paloalto-policy", "create_rule", {
-    rule_type: "security",
-    rule_data: {...template, ...customData}
-  });
-}
-```
-
-### 2. Batch Operations
-```typescript
-async function batchCreateObjects(objects) {
-  const results = [];
-  for (const obj of objects) {
-    try {
-      const result = await useMcpTool("paloalto-objects", "create_address_object", obj);
-      results.push({status: "success", name: obj.name});
-    } catch (error) {
-      results.push({status: "error", name: obj.name, error: error.message});
-    }
-  }
-  return results;
-}
-```
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `PANOS_API_KEY` | Yes | Your firewall API key | `LUFRPT...` |
+| `PANOS_API_BASE_URL` | No | Your firewall's API address | `https://192.168.1.1/restapi/v11.0` |
 
 ## Troubleshooting
 
-### Common Issues
+### "PANOS_API_KEY environment variable is required"
+You haven't set your API key. Make sure your `.env` file exists and contains your key.
 
-1. **API Connection Issues**
-```typescript
-// Test API connectivity
-const status = await useMcpTool("paloalto-server", "test_connection", {
-  timeout: 5000,
-  verify_ssl: true
-});
+### Connection errors
+- Check that your firewall is accessible from your computer
+- Verify the `PANOS_API_BASE_URL` is correct
+- Ensure your API key is valid and hasn't expired
 
-if (!status.success) {
-  console.error(`Connection failed: ${status.error}`);
-  // Check firewall accessibility
-  // Verify API key permissions
-  // Validate SSL certificates
-}
+### Permission errors
+Your API key may not have sufficient permissions. Check with your firewall administrator.
+
+## For Developers
+
+### Project Structure
+```
+paloalto-mcp-server/
+├── src/
+│   └── index.ts      # Main server code
+├── build/
+│   └── index.js      # Compiled JavaScript
+├── package.json      # Project dependencies
+└── tsconfig.json     # TypeScript configuration
 ```
 
-2. **Rule Conflicts**
-```typescript
-// Analyze rule conflicts
-const analysis = await useMcpTool("paloalto-policy", "analyze_rules", {
-  rule_type: "security",
-  checks: ["shadowing", "redundancy", "conflicts"]
-});
+### Dependencies
 
-if (analysis.issues.length > 0) {
-  console.log("Found rule issues:", analysis.issues);
-}
+This project uses minimal, trusted dependencies:
+
+| Package | Purpose | Weekly Downloads |
+|---------|---------|-----------------|
+| `@modelcontextprotocol/sdk` | Official MCP protocol library | Maintained by Anthropic |
+| `axios` | HTTP requests to firewall API | 45M+ weekly downloads |
+| `typescript` | Development only | Standard tooling |
+
+### Building from Source
+
+```bash
+npm install
+npm run build
 ```
 
-3. **Commit Failures**
-```typescript
-try {
-  await useMcpTool("paloalto-device", "commit_changes", {
-    description: "Policy update"
-  });
-} catch (error) {
-  if (error.code === "ConfigurationLocked") {
-    // Handle locked configuration
-    await useMcpTool("paloalto-device", "release_config_lock", {});
-  } else if (error.code === "ValidationError") {
-    // Handle validation errors
-    console.error("Configuration validation failed:", error.details);
-  }
-}
+### Running with Docker
+
+```bash
+docker build -t paloalto-mcp-server .
+docker run -e PANOS_API_KEY=your-key -e PANOS_API_BASE_URL=https://your-firewall/restapi/v11.0 paloalto-mcp-server
 ```
+
+## Getting Help
+
+- **Issues**: Report problems on [GitHub Issues](https://github.com/danielitus/paloalto-mcp-server/issues)
+- **Questions**: Check the troubleshooting section above
 
 ## Contributing
 
+Contributions are welcome! Please:
+
 1. Fork the repository
-2. Create a feature branch
-```bash
-git checkout -b feature/new-feature
-```
-3. Commit your changes
-```bash
-git commit -m "Add new feature"
-```
-4. Push to the branch
-```bash
-git push origin feature/new-feature
-```
-5. Create a Pull Request
+2. Create a feature branch (`git checkout -b feature/improvement`)
+3. Make your changes
+4. Submit a Pull Request
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - see LICENSE file for details.
+
+---
+
+**Note:** This tool is not officially affiliated with Palo Alto Networks. Use at your own discretion and always follow your organization's security policies.
